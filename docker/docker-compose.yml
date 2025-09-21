@@ -11,7 +11,7 @@ services:
     hostname: computer
     privileged: true
     ports:
-      - "8090:9990"           # Desktop / noVNC
+      - "18090:9990"           # Desktop / noVNC
     environment:
       - DISPLAY=:0
     networks:
@@ -39,7 +39,7 @@ services:
     image: ghcr.io/bytebot-ai/bytebot-agent:edge
     restart: unless-stopped
     ports:
-      - "8091:9991"           # expõe o agente
+      - "18091:9991"           # expõe o agente
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/bytebotdb}
       - BYTEBOT_DESKTOP_BASE_URL=${BYTEBOT_DESKTOP_BASE_URL:-http://bytebot-desktop:9990}
@@ -61,7 +61,7 @@ services:
     image: ghcr.io/bytebot-ai/bytebot-ui:edge
     restart: unless-stopped
     ports:
-      - "8092:9992"           # UI web
+      - "18092:9992"           # UI web
     environment:
       - NODE_ENV=production
       - BYTEBOT_AGENT_BASE_URL=${BYTEBOT_AGENT_BASE_URL:-http://bytebot-agent:9991}
