@@ -1,60 +1,80 @@
-name: bytebot
+version: "3.9"
 
 services:
   postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
+    image: postgres:15
+    container_name: bytebot-postgres
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=bytebotdb
-    networks: [bytebot-network]
+      POSTGRES_DB: bytebot
+      POSTGRES_USER: bytebot
+      POSTGRES_PASSWORD: supersecret
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    # se precisar acessar de fora, descomente:
-    ports:
-      - "55432:5432"
-
-  bytebot-agent:
-    image: ghcr.io/bytebot-ai/bytebot-agent:edge
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bytebot -d bytebot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
+
+  bytebot-agente:
+    image: ghcr.io/seu-org/bytebot-agente:latest
+    container_name: bytebot-agente
+    env_file:
+      - .env   # coloque aqui as chaves (SUPABASE_URL, SUPABASE_ANON_KEY, etc.)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
     ports:
-      - "8091:9991"               # API do agente
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bytebotdb
-      - BYTEBOT_DESKTOP_BASE_URL=http://bytebot-desktop:9990
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    depends_on: [postgres]
-    networks: [bytebot-network]
+      - "8080:8080"
+    restart: unless-stopped
 
   bytebot-desktop:
-    image: ghcr.io/bytebot-ai/bytebot-desktop:edge
-    shm_size: "2g"
-    restart: unless-stopped
-    privileged: true
+    image: ghcr.io/seu-org/bytebot-desktop:latest
+    container_name: bytebot-desktop
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bytebot-agente:
+        condition: service_healthy
+    # ajuste a porta real do desktop/api interno
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').connect(9000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
     ports:
-      - "8090:9990"               # noVNC
-    environment:
-      - DISPLAY=:0
-    networks: [bytebot-network]
+      - "9000:9000"
+    restart: unless-stopped
 
   bytebot-ui:
-    image: ghcr.io/bytebot-ai/bytebot-ui:edge
-    restart: unless-stopped
-    ports:
-      - "8092:9992"               # UI web
+    image: ghcr.io/seu-org/bytebot-ui:latest
+    container_name: bytebot-ui
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=production
-      - BYTEBOT_AGENT_BASE_URL=http://bytebot-agent:9991
-      - BYTEBOT_DESKTOP_VNC_URL=http://bytebot-desktop:9990/websockify
-    depends_on: [bytebot-agent]
-    networks: [bytebot-network]
-
-networks:
-  bytebot-network:
-    driver: bridge
+      # se a UI precisa saber a URL do agente/API:
+      VITE_API_URL: "http://bytebot-agente:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bytebot-agente:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  pgdata:
