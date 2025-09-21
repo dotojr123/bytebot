@@ -12,14 +12,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # se precisar acessar de fora, descomente:
-    # ports:
-    #   - "55432:5432"
+    ports:
+      - "55432:5432"
 
   bytebot-agent:
     image: ghcr.io/bytebot-ai/bytebot-agent:edge
     restart: unless-stopped
     ports:
-      - "18091:9991"               # API do agente
+      - "8091:9991"               # API do agente
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bytebotdb
       - BYTEBOT_DESKTOP_BASE_URL=http://bytebot-desktop:9990
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     privileged: true
     ports:
-      - "18090:9990"               # noVNC
+      - "8090:9990"               # noVNC
     environment:
       - DISPLAY=:0
     networks: [bytebot-network]
@@ -44,7 +44,7 @@ services:
     image: ghcr.io/bytebot-ai/bytebot-ui:edge
     restart: unless-stopped
     ports:
-      - "18092:9992"               # UI web
+      - "8092:9992"               # UI web
     environment:
       - NODE_ENV=production
       - BYTEBOT_AGENT_BASE_URL=http://bytebot-agent:9991
