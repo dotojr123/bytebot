@@ -1,20 +1,4 @@
-version: "3.9"
-
-name: bytebot-stack
-
-x-health-curl: &health_http
-  test: ["CMD-SHELL", "curl -fsS http://localhost:${HEALTH_PORT}/health || exit 1"]
-  interval: 10s
-  timeout: 5s
-  retries: 30
-  start_period: 15s
-
-x-health-tcp: &health_tcp
-  test: ["CMD-SHELL", "node -e \"require('net').connect(process.env.HEALTH_PORT||'80','127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
-  interval: 10s
-  timeout: 5s
-  retries: 30
-  start_period: 15s
+# Easypanel não precisa mais do "version", removido de propósito.
 
 services:
   postgres:
@@ -35,81 +19,77 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
-    networks: [bytebot-net]
 
   # API/Agente
   bytebot-agente:
-    # use "build" se o projeto tem Dockerfile dentro de ./bytebot-agente
-    # build:
-    #   context: ./bytebot-agente
-    #   dockerfile: Dockerfile
-    # OU use imagem já publicada (deixe assim se não tem Dockerfile):
+    # Se você já tem imagem publicada, mantenha. Se usa Dockerfile local, troque por 'build:'.
     image: bytebot/agente:latest
     container_name: bytebot-agente
-    env_file:
-      - .env
     environment:
+      # apontando para o serviço postgres (DNS do Compose)
       DATABASE_URL: postgres://bytebot:supersecret@postgres:5432/bytebot
-      HEALTH_PORT: "8080"
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck: *health_tcp
+    # Healthcheck por TCP na porta 8080 (sem variável externa)
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').connect(8080,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
     ports:
       - "8080:8080"
     restart: unless-stopped
-    networks: [bytebot-net]
 
-  # Backend Desktop (seu serviço secundário)
+  # Backend Desktop (se houver)
   bytebot-desktop:
-    # build:
-    #   context: ./bytebot-desktop
-    #   dockerfile: Dockerfile
     image: bytebot/desktop:latest
     container_name: bytebot-desktop
-    env_file:
-      - .env
     environment:
       DATABASE_URL: postgres://bytebot:supersecret@postgres:5432/bytebot
       API_BASE_URL: http://bytebot-agente:8080
-      HEALTH_PORT: "9000"
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
       bytebot-agente:
         condition: service_healthy
-    healthcheck: *health_tcp
+    # Porta interna 9000 (ajuste se seu serviço usa outra)
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').connect(9000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
     ports:
       - "9000:9000"
     restart: unless-stopped
-    networks: [bytebot-net]
 
   # UI (painel/web)
   bytebot-ui:
-    # build:
-    #   context: ./bytebot-ui
-    #   dockerfile: Dockerfile
     image: bytebot/ui:latest
     container_name: bytebot-ui
-    env_file:
-      - .env
     environment:
+      # A UI fala com o agente via rede interna
       VITE_API_URL: http://bytebot-agente:8080
-      HEALTH_PORT: "3000"
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
       bytebot-agente:
         condition: service_healthy
-    healthcheck: *health_tcp
+    # Porta interna 3000 (ajuste se sua UI usa nginx:80)
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').connect(3000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
     ports:
       - "3000:3000"
     restart: unless-stopped
-    networks: [bytebot-net]
-
-networks:
-  bytebot-net:
-    driver: bridge
 
 volumes:
   pgdata:
