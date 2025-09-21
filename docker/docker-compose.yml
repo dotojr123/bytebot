@@ -1,22 +1,6 @@
 name: bytebot
 
 services:
-  bytebot-desktop:
-    build:
-      context: ../packages/
-      dockerfile: bytebotd/Dockerfile
-    image: ghcr.io/bytebot-ai/bytebot-desktop:edge
-    shm_size: "2g"
-    restart: unless-stopped
-    hostname: computer
-    privileged: true
-    ports:
-      - "18090:9990"           # Desktop / noVNC
-    environment:
-      - DISPLAY=:0
-    networks:
-      - bytebot-network
-
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -24,52 +8,49 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=bytebotdb
-    networks:
-      - bytebot-network
+    networks: [bytebot-network]
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Se quiser acessar o Postgres de fora, descomente a linha abaixo
+    # se precisar acessar de fora, descomente:
     # ports:
-    #   - "55432:5432"        # host:container (porta externa opcional)
+    #   - "55432:5432"
 
   bytebot-agent:
-    build:
-      context: ../packages/
-      dockerfile: bytebot-agent/Dockerfile
     image: ghcr.io/bytebot-ai/bytebot-agent:edge
     restart: unless-stopped
     ports:
-      - "18091:9991"           # expõe o agente
+      - "18091:9991"               # API do agente
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/bytebotdb}
-      - BYTEBOT_DESKTOP_BASE_URL=${BYTEBOT_DESKTOP_BASE_URL:-http://bytebot-desktop:9990}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bytebotdb
+      - BYTEBOT_DESKTOP_BASE_URL=http://bytebot-desktop:9990
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-    depends_on:
-      - postgres
-    networks:
-      - bytebot-network
+    depends_on: [postgres]
+    networks: [bytebot-network]
+
+  bytebot-desktop:
+    image: ghcr.io/bytebot-ai/bytebot-desktop:edge
+    shm_size: "2g"
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "18090:9990"               # noVNC
+    environment:
+      - DISPLAY=:0
+    networks: [bytebot-network]
 
   bytebot-ui:
-    build:
-      context: ../packages/
-      dockerfile: bytebot-ui/Dockerfile
-      args:
-        - BYTEBOT_AGENT_BASE_URL=${BYTEBOT_AGENT_BASE_URL:-http://bytebot-agent:9991}
-        - BYTEBOT_DESKTOP_VNC_URL=${BYTEBOT_DESKTOP_VNC_URL:-http://bytebot-desktop:9990/websockify}
     image: ghcr.io/bytebot-ai/bytebot-ui:edge
     restart: unless-stopped
     ports:
-      - "18092:9992"           # UI web
+      - "18092:9992"               # UI web
     environment:
       - NODE_ENV=production
-      - BYTEBOT_AGENT_BASE_URL=${BYTEBOT_AGENT_BASE_URL:-http://bytebot-agent:9991}
-      - BYTEBOT_DESKTOP_VNC_URL=${BYTEBOT_DESKTOP_VNC_URL:-http://bytebot-desktop:9990/websockify}
-    depends_on:
-      - bytebot-agent
-    networks:
-      - bytebot-network
+      - BYTEBOT_AGENT_BASE_URL=http://bytebot-agent:9991
+      - BYTEBOT_DESKTOP_VNC_URL=http://bytebot-desktop:9990/websockify
+    depends_on: [bytebot-agent]
+    networks: [bytebot-network]
 
 networks:
   bytebot-network:
