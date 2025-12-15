@@ -1,0 +1,33 @@
+{
+  "name": "Sandbox Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:9990/api/v1/sandbox/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "type_text"
+            },
+            {
+              "name": "text",
+              "value": "Automation via n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Execute Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        460,
+        300
+      ]
+    }
+  ],
+  "connections": {}
+}
