@@ -1,0 +1,44 @@
+version: '3.9'
+
+services:
+  sandbox:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    container_name: sandbox-standalone
+    ports:
+      - "9990:9990"
+      - "5900:5900" # VNC port optional
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/sandbox
+    # Removed bind mount of source code for production safety and to ensure built artifacts are used
+    depends_on:
+      - redis
+      - postgres
+    shm_size: 2gb
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: sandbox-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sandbox
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: sandbox-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
